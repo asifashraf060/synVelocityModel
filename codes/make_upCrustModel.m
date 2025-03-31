@@ -2,17 +2,34 @@
 % develops a smooth and denser upper crustal velocity model from few points
 % asif, Nov 23, 2022
 
+close all, clear all, clc
+
+
+% find output dir
+scriptDir = fileparts(mfilename('fullpath'));
+cd(scriptDir)
+cd ..
+cd outputs/upCrust/
+out_dir = [pwd, '/'];
+cd ../..
+cd inputs/
+in_uc_dir  = [pwd, '/upCrust/'];
+in_sr_dir  = [pwd, '/stingray_structures/'];
+cd(scriptDir)
+
+
 %% Input
 
-vp_tb  = table2array(readtable('/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/BIG_matrix/UpCrust_Vp_12points_highSltzTerrane_AUG13_2024.xlsx'));
-mltpl_factor = 20;
-filt_value   = 15;
-out_dir      = '/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/BIG_matrix/';
+theTable = 'UpCrust_Vp_12points_highSltzTerrane_AUG13_2024.xlsx';
+mltpl_factor = 20; % a multiplication factor determining the resolution
+filt_value   = 15; % a filtering factor determining the smoothness
 model_name   = 'upCrust_2024Aug13_2HighSltz_12points_3kline';
+upCr_name    = ['upCrust_', date, '_', theTable];
 % srGeometry
-load('/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Stingray_structures/OR2012_srGeometry.mat')
+load([in_sr_dir, 'OR2012_srGeometry.mat'])
 
 %% Extract info from table
+vp_tb  = table2array(readtable([in_uc_dir, theTable]));
 
 disp('Extracting info from table...')
 lon_rw = vp_tb(1,:);    %row for LON values from imported table
@@ -56,13 +73,16 @@ vp_Int                   = f(ln_grd_Int, dp_grd_Int);
 vp_Int_filt              = imgaussfilt(vp_Int, filt_value);
 % plot to check the interpolation
 figure(1), clf
-[CC,h] = contourf(ln_grd_Int, dp_grd_Int, vp_Int_filt, [min(vp_Int_filt(:)):.1:max(vp_Int_filt(:))]);
+[C,h] = contourf(ln_grd_Int, dp_grd_Int, vp_Int_filt, [min(vp_Int_filt(:)):.5:max(vp_Int_filt(:))]);
 colormap(flip(jet))
-xlabel('Depth')
-ylabel('Longitude')
+clabel(C, h)
+xlabel('Longitude')
+ylabel('Depth')
 colorbar
 title('Check the interpolated Vp distribution', 'FontSize', 16)
-%% Make SED structure
+saveas(gcf, [out_dir, '/plots/upCrust_model.jpg'])
+close all
+%% Make structure
 % making a fake lat array to apply map2xy function
 fake_lat                 = linspace(40, 45, length(lon_finer));
 [lon_fn_grd, lat_fk_grd] = meshgrid(lon_finer, fake_lat);
@@ -74,5 +94,5 @@ upCr_2Dmat.vp   = vp_Int_filt;
 upCr_2Dmat.xPos = xg;
 upCr_2Dmat.zPos = dp_matching;
 upCr_2Dmat.lon  = lon_finer;
-save([out_dir, model_name, '.mat'], 'upCr_2Dmat')
+save([out_dir, '/structures/' ,upCr_name, '.mat'], 'upCr_2Dmat')
 disp('upCr_2Dmat structure has been saved')

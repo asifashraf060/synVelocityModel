@@ -6,24 +6,37 @@
 %asif, Apr 20, 2022
 clear all, close all, clc
 
-addpath('/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Initial_Model/output_int_and_UpCr_struc')
-addpath('/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Initial_Model/output_new_models')
-addpath('/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Stingray_structures/')
+% find output dir
+scriptDir = fileparts(mfilename('fullpath'));
+cd(scriptDir)
+cd ..
+cd outputs/
+out_dir      = [pwd, '/entireModel/'];
+in_dir_slab  = [pwd, '/slab/structures/'];
+in_dir_UC    = [pwd, '/upCrust/structures/'];
+cd ..
+cd inputs/
+in_dir_SR    = [pwd, '/stingray_structures/'];
+cd(scriptDir)
+
+addpath(out_dir); addpath(in_dir_slab); addpath(in_dir_UC); addpath(in_dir_SR);
 
 %find the path
-theUpCr    = which('upCrust_2024Aug13_2HighSltz_12points_3kline.mat');   % 2D vp matrix for upper crust
-theInt     = which('int3D_28-Apr-2024apr28_southExp.mat'); % Interfaces
-theStation = which('srStation_28-Jun-2024_SG1234_obsPD19.mat');
-theEvent   = which('srEvent_28-Apr-2024_SG1234.mat');
-theElevation = which('srElevation_s3k2k_grid123.mat');
-load('OR2012_srGeometry.mat')
+theUpCr    = which('upCrust_31-Mar-2025_UpCrust_Vp_12points_highSltzTerrane_AUG13_2024.xlsx.mat');   % 2D vp matrix for upper crust
+theInt     = which('int_3D_31-Mar-2025_casieGP_bloch.mat'); % Interfaces
+theStation = which('srStation_29-Oct-2024_CG&SG_.mat');
+theEvent   = which('srEvent_28-Oct-2024_CG&SG_.mat');
+theElevation = which('srElevation_feb2_CGSG.mat');
+theGeometry  = which('OR2012_srGeometry.mat');
+theControl   = which('srControl_casExp.mat');
 
 load(theUpCr)    %loaded structure name is upCr_2Dmat
 load(theInt)     %loaded structure name is int_3Dmat
 load(theStation) %loaded structure name is srStation
 load(theEvent)   %loaded structure name is srEvent
+load(theGeometry)
 
-% Assign paramters -
+% Assign paramters to modify standard model-
 mantle_vp          = 8.1;
 basement_vp_top    = 6.1;
 basement_vp_bottom = 6.8;
@@ -56,7 +69,6 @@ checker            = 0;  % input: logical
               condition = 'whole';
 
 %name the output model
-out_dir         = '/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Initial_Model/output_new_models/';
 unq_model_name  = 'test2_onlyUpCr&Mntl'; % generally put the region the experiment
 save_model      = 1;
 
@@ -198,7 +210,7 @@ if onlyUpCr == 1
 end
 disp('      Vp model has no nan')
 
-%% make a srModel structure
+%% make the srModel structure
 clear srModel
 
 % slowness
@@ -240,17 +252,6 @@ else
     srModel.interface(2).elevation                  = moho_interp_elv;
 end
 
-
-figure(1), clf
-[x_grd, y_grd] = meshgrid(srModel.xg, srModel.zg);
-[x, y] = contourf(x_grd, y_grd, (squeeze(1./srModel.P.u (:,(round(length(srModel.yg)/2)),:)))', [0:.2:8]);
-colormap(jet)
-colorbar
-hold on
-plot(srModel.xg, squeeze(srModel.interface(1).Z (:,(round(length(srModel.yg)/2)))), '-r')
-title('before loading srModel', 'FontSize', 16)
-
-
 %now, write ghead
 srModel.ghead(1) = srModel.xg(1);
 srModel.ghead(2) = srModel.yg(1);
@@ -261,19 +262,31 @@ srModel.ghead(6) = abs(srModel.xg(1)-srModel.xg(2));
 srModel.ghead(7) = abs(srModel.yg(1)-srModel.yg(2));
 srModel.ghead(8) = abs(srModel.zg(1)-srModel.zg(2));
 
+%% PLOTS to check
 figure(33), clf
 plot(srModel.LON, srModel.LAT)
 hold on
 plot(srStation.longitude, srStation.latitude)
 title('Check Extent--before loading srModel')
+saveas(gcf, [out_dir, '/plots/model_extent_b4Load.jpg'])
+
+figure(2), clf
+[x_grd, y_grd] = meshgrid(srModel.xg, srModel.zg);
+[x, y] = contourf(x_grd, y_grd, (squeeze(1./srModel.P.u (:,(round(length(srModel.yg)/2)),:)))');
+colormap(jet)
+colorbar
+hold on
+title('before loading srModel', 'FontSize', 16)
+saveas(gcf, [out_dir, '/plots/srModel_b4Load.jpg'])
+
+close all
+
+%% use stingray environment to cross check srModel
 
 disp('Loading through stingray environment...')
 % save and load the srModel
-save(append(out_dir, model_name,'.mat'), 'srModel')
-% make paths for important structures
-theModel = append(out_dir, model_name, '.mat');
-theControl = '/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Stingray_structures/srControl_casExp.mat';
-load('/Users/asifashraf/Documents/MATLAB/Cascadia Analysis/Stingray_structures/OR2012_srGeometry.mat')
+theModel = [out_dir, '/models/' ,model_name, '.mat'];
+save(theModel, 'srModel')
 % load the structures through stingray
 srElevation  = load_srElevation(theElevation, srGeometry);
 srControl  = load_srControl(theControl);
@@ -283,7 +296,6 @@ srModel   = load_srModel(theModel, srControl, srGeometry, srElevation);
 srModel.elevation = elv_interp;
 
 % modify the model
-
 
 if soft_boundary == 1
     disp('6. Blurring the model by convoluting with moving average ...')
@@ -334,14 +346,7 @@ if ~isempty(find(isnan(srModel.interface(2).elevation)))
 end
 disp('      There are no nans')
 
-%% PLOTS to check
-figure(2), clf
-[x_grd, y_grd] = meshgrid(srModel.xg, srModel.zg);
-[x, y] = contourf(x_grd, y_grd, (squeeze(1./srModel.P.u (:,(round(length(srModel.yg)/2)),:)))');
-colormap(jet)
-colorbar
-hold on
-title('after loading srModel', 'FontSize', 16)
+%% plots to check
 
 figure(22), clf
 [x_grd, y_grd] = meshgrid(srModel.xg, srModel.yg);
@@ -351,6 +356,9 @@ colorbar
 hold on
 title('after loading srModel', 'FontSize', 16)
 axis equal
+saveas(gcf, [out_dir, '/plots/srModel_afLoad.jpg'])
+
+close all
 
 figure(3), clf
 plot(srModel.LON, srModel.LAT, 'y')
@@ -358,27 +366,18 @@ hold on
 plot(srStation.longitude, srStation.latitude, 'vr')
 plot(srEvent.longitude, srEvent.latitude, '.r')
 title('Check Extent--after loading srModel')
-
-figure(4), clf
-[X,Y] = meshgrid(srModel.xg, srModel.yg);
-plot(X, Y, 'y')
-[st_LON, st_LAT] = meshgrid(srStation.longitude, srStation.latitude);
-[st_x, st_y]     = map2xy(st_LON, st_LAT, srGeometry);
-[ev_LON, ev_LAT] = meshgrid(srEvent.longitude, srEvent.latitude);
-[ev_x, ev_y]     = map2xy(ev_LON, ev_LAT, srGeometry);
-hold on
-plot(st_x, st_y, 'r')
-hold on
-plot(ev_x, ev_y, 'b')
-title('check in X-Y')
+saveas(gcf, [out_dir, '/plots/model_extent_afLoad.jpg'])
 
 figure(5), clf
 contourf(srModel.LON, srModel.LAT, srModel.elevation)
 title('check elevation')
+saveas(gcf, [out_dir, '/plots/elevation.jpg'])
+
+close all
 
 %% SAVING
 if save_model == 1
-    save(append(out_dir, model_name,'.mat'), 'srModel')
+    save(theModel, 'srModel', '-v7.3')
     disp('MODEL SUCCESSFULLY MADE AND SAVED!')
-    disp(append('Check: ', out_dir, model_name,'.mat'))
+    disp(theModel)
 end
