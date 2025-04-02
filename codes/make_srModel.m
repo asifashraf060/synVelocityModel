@@ -1,12 +1,42 @@
-%% Script for making a srModel based on imported interfaces (basement/moho) by cutting imported sed matrix
-%load the vp structure (2D--x&z) for sediment
-%load the interface structure (2D--x&y)
-%matrix dimension in x direction for interface must be bigger than the vp structure of sediments
-%extent of interfaces must be bigger than the vp structure
-%asif, Apr 20, 2022
-clear all, close all, clc
+%% Script for making a srModel based on imported interfaces (basement/moho) 
+% load the vp structure (2D--x&z) for upper crust
+% load the interface structure (2D--x&y)
+% matrix dimension in x direction for interface must be bigger than the vp structure of sediments
+% extent of interfaces must be bigger than the vp structure
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Introduction:
+% This script is designed to automate the creation of a seismic velocity model (srModel)
+% by integrating multiple geophysical datasets. It leverages imported 2D upper crustal
+% velocity matrices and 3D interface structures (basement/moho) 
+% to generate a consistent and continuous model grid.
+%
+% Key features of the script include:
+% 1. Data Integration: Loads essential input files such as sediment and upper crust 
+%    velocity matrices, interface geometries, station/event locations, elevation data, 
+%    and control parameters.
+%
+% 2. Interpolation & Gap Filling: Employs robust interpolation methods to fill gaps 
+%    between the sedimentary data and the interface extents, ensuring that all datasets 
+%    align within a unified spatial framework.
+%
+% 3. Model Assembly: Combines the interpolated data to construct the full 3D velocity 
+%    model. This process includes assigning crustal and mantle velocity values, with 
+%    optional modifications such as soft-boundary blurring, Vp patching, Gaussian filtering,
+%    and checkerboard tests.
+%
+% 4. Quality Control & Visualization: Conducts thorough NaN checks and produces diagnostic 
+%    plots to validate the spatial extent and integrity of the model before final deployment.
+%
+% 5. Model Saving: Once validated, the completed srModel is saved for use in further seismic 
+%    imaging and analysis tasks, particularly within the stingray environment.
+%
+% Author: Asif (originally created on Apr 20, 2022; updated through 2024-2025)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% find output dir
+
+%clear all, close all, clc
+
+% find input and output dirs
 scriptDir = fileparts(mfilename('fullpath'));
 cd(scriptDir)
 cd ..
@@ -68,8 +98,6 @@ checker            = 0;  % input: logical
               mag  = .2; % magnitude of change in percent
               condition = 'whole';
 
-%name the output model
-unq_model_name  = 'test2_onlyUpCr&Mntl'; % generally put the region the experiment
 save_model      = 1;
 
 %% AUTO CALCULATION -- no input below this line
